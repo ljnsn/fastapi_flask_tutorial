@@ -1,24 +1,21 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
-from fastr.config import Settings
-
-from typing import Generator
+from fastr.config import settings
 
 
-settings = Settings()
-
-database_url = f"sqlite:///{settings.database_path}"
-engine = create_engine(url=database_url, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+connectstring = settings.connectstring
+engine = create_async_engine(connectstring, echo=True, future=True)
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Connect to the database"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def init_db():
+    async with engine.begin() as conn:
+        # await conn.run_sync(SQLModel.metadata.drop_all)
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+
+async def get_session() -> AsyncSession:
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        yield session
