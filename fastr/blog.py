@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastr.db.database import get_db
+from fastr.db.database import get_session
 from fastr.db import crud, schemas, models
 
 
@@ -20,6 +20,7 @@ class RequiresLoginException(Exception):
     Workaround suggested in a GitHub comment here:
     https://github.com/tiangolo/fastapi/issues/1039#issuecomment-591661667
     """
+
     pass
 
 
@@ -30,9 +31,9 @@ def login_required(request: Request):
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, db: Session = Depends(get_db)):
+async def index(request: Request, db: AsyncSession = Depends(get_session)):
     """Show all the posts, most recent first."""
-    posts = crud.get_posts(db)
+    posts = await crud.get_posts(db)
     return templates.TemplateResponse(
         "blog/index.html", {"request": request, "posts": posts}
     )
@@ -41,7 +42,7 @@ def index(request: Request, db: Session = Depends(get_db)):
 @router.get(
     "/create", dependencies=[Depends(login_required)], response_class=HTMLResponse
 )
-def create_page(request: Request):
+async def create_page(request: Request):
     """Create post page."""
     return templates.TemplateResponse("blog/create.html", {"request": request})
 
@@ -49,11 +50,11 @@ def create_page(request: Request):
 @router.post(
     "/create", dependencies=[Depends(login_required)], response_class=HTMLResponse
 )
-def create_post(
+async def create_post(
     request: Request,
     title: str = Form(...),
     body: str = Form(""),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_session),
 ):
     """
     Create a new post for the current user.
@@ -62,16 +63,20 @@ def create_post(
     make sure it is populated. No need for an explicit check that it is not None or "".
     """
     post = schemas.Post(title=title, body=body)
-    crud.create_post(db=db, create_data=post, user_id=request.session["user"]["id"])
+    await crud.create_post(
+        db=db, create_data=post, user_id=request.session["user"]["id"]
+    )
     return RedirectResponse("/", status_code=302)
 
 
 @router.get(
     "/{id}/update", dependencies=[Depends(login_required)], response_class=HTMLResponse
 )
-def update_page(request: Request, id: int, db: Session = Depends(get_db)):
+async def update_page(
+    request: Request, id: int, db: AsyncSession = Depends(get_session)
+):
     """Update post page."""
-    post = get_and_validate_post(id=id, db=db, request=request)
+    post = await get_and_validate_post(id=id, db=db, request=request)
     return templates.TemplateResponse(
         "blog/update.html", {"request": request, "post": post}
     )
@@ -80,12 +85,12 @@ def update_page(request: Request, id: int, db: Session = Depends(get_db)):
 @router.post(
     "/{id}/update", dependencies=[Depends(login_required)], response_class=HTMLResponse
 )
-def update_post(
+async def update_post(
     request: Request,
     id: int,
     title: str = Form(...),
     body: str = Form(""),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_session),
 ):
     """
     Update an existing post that was created by the logged in user.
@@ -93,30 +98,30 @@ def update_post(
     Note: title is specified as a required field, so FastAPI's input validation will
     make sure it is populated. No need for an explicit check that it is not None or "".
     """
-    get_and_validate_post(id=id, db=db, request=request)
+    await get_and_validate_post(id=id, db=db, request=request)
 
     update_data = schemas.PostUpdate(id=id, title=title, body=body)
-    crud.update_post(db, update_data)
+    await crud.update_post(db, update_data)
     return RedirectResponse("/", status_code=302)
 
 
 @router.post(
     "/{id}/delete", dependencies=[Depends(login_required)], response_class=HTMLResponse
 )
-def delete_post(
+async def delete_post(
     request: Request,
     id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_session),
 ):
     """Delete a post that was created by the logged in user."""
-    get_and_validate_post(id=id, db=db, request=request)
-    crud.delete_post(db, post_id=id)
+    await get_and_validate_post(id=id, db=db, request=request)
+    await crud.delete_post(db, post_id=id)
     return RedirectResponse("/", status_code=302)
 
 
-def get_and_validate_post(
+async def get_and_validate_post(
     id: int,
-    db: Session,
+    db: AsyncSession,
     request: Request,
     check_author: bool = True,
 ) -> models.Post:
@@ -129,7 +134,7 @@ def get_and_validate_post(
     id
         id of post we were looking for
     db
-        database from get_db
+        database from get_session
     request
         API request
     check_author
@@ -146,7 +151,7 @@ def get_and_validate_post(
     403
         if the current user isn't the author
     """
-    post = crud.get_post_by_id(db, id)
+    post = await crud.get_post_by_id(db, id)
     if post is None:
         raise HTTPException(404, f"Post id {id} doesn't exist.")
 

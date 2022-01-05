@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 
-from fastr.db.database import get_db
+from fastr.db.database import get_session
 from fastr.db import crud, schemas
 from fastr.utils import flash
 
@@ -23,17 +23,17 @@ def get_password_hash(password: str) -> str:
 
 
 @router.get("/register", response_class=HTMLResponse)
-def register_page(request: Request):
+async def register_page(request: Request):
     """Display the user registration page"""
     return templates.TemplateResponse("auth/register.html", {"request": request})
 
 
 @router.post("/register", response_class=HTMLResponse)
-def register_post(
+async def register_post(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_session),
 ):
     """
     Register a new user.
@@ -46,14 +46,14 @@ def register_post(
     """
     error = None
 
-    if crud.get_user_by_username(db, username):
+    if await crud.get_user_by_username(db, username):
         error = f"User {username} is already registered."
 
     if error is None:
         # Success -- add user to database and redirect to login screen
         hashed_password = get_password_hash(password)
         user = schemas.UserCreate(username=username, hashed_password=hashed_password)
-        crud.create_user(db, user)
+        await crud.create_user(db, user)
         return RedirectResponse("/auth/login", status_code=302)
     else:
         # Error -- redirect back to register page and flash the error
@@ -62,22 +62,22 @@ def register_post(
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
+async def login_page(request: Request):
     """Display the login page"""
     return templates.TemplateResponse("auth/login.html", {"request": request})
 
 
 @router.post("/login", response_class=HTMLResponse)
-def login_post(
+async def login_post(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_session),
 ):
     """Log in a registered user by adding the user id to the session."""
     error = None
 
-    user = crud.get_user_by_username(db, username)
+    user = await crud.get_user_by_username(db, username)
 
     if user is None:
         error = "Incorrect username."
@@ -97,7 +97,7 @@ def login_post(
 
 
 @router.get("/logout", response_class=HTMLResponse)
-def logout_page(request: Request):
+async def logout_page(request: Request):
     """Clear the current session, including the stored user id."""
     clear_session(request)
     return RedirectResponse("/", status_code=302)
