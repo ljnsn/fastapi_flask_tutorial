@@ -1,27 +1,26 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from datetime import datetime
+from typing import List, Optional
 
-from .database import Base
-
-
-class User(Base):
-    __tablename__ = "user"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-
-    posts = relationship("Post", back_populates="author")
+from sqlmodel import SQLModel, Field, Relationship
 
 
-class Post(Base):
-    __tablename__ = "post"
+class User(SQLModel, table=True):
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    author_id = Column(Integer, ForeignKey("user.id"))
-    created = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    title = Column(String, nullable=False)
-    body = Column(String, nullable=False)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, sa_column_kwargs=dict(unique=True))
+    hashed_password: str
 
-    author = relationship("User", back_populates="posts")
+    posts: List["Post"] = Relationship(back_populates="author")
+
+
+class Post(SQLModel, table=True):
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    author_id: int = Field(foreign_key="user.id")
+    created: datetime = Field(default=datetime.now())
+    title: str
+    body: str
+
+    author: User = Relationship(
+        back_populates="posts", sa_relationship_kwargs=dict(lazy="joined")
+    )
