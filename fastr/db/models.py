@@ -17,7 +17,7 @@ class Post(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     author_id: int = Field(foreign_key="user.id")
-    created: datetime = Field(default=datetime.now())
+    created: datetime = Field(default_factory=datetime.now)
     title: str
     body: str
 
