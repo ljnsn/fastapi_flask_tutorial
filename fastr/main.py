@@ -4,17 +4,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from fastr import auth, blog
-from fastr.db import models
-from fastr.db.database import engine
-from fastr.config import Settings
+from fastr.config import settings
 
 
 # create the database tables
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-settings = Settings()
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
 app.mount("/static", StaticFiles(directory="fastr/static"), name="static")
