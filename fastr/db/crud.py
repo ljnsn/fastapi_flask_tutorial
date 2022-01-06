@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from . import models, schemas
+from . import models
 
 
 async def get_user_by_username(db: AsyncSession, username: str) -> models.User:
@@ -13,7 +13,7 @@ async def get_user_by_username(db: AsyncSession, username: str) -> models.User:
     return result.scalars().first()
 
 
-async def create_user(db: AsyncSession, user: schemas.UserCreate):
+async def create_user(db: AsyncSession, user: models.UserCreate):
     db_user = models.User(username=user.username, hashed_password=user.hashed_password)
     db.add(db_user)
     await db.commit()
@@ -39,14 +39,14 @@ async def get_post_by_id(db: AsyncSession, id: int) -> models.Post:
     return result.scalars().first()
 
 
-async def create_post(db: AsyncSession, create_data: schemas.Post, user_id: int):
+async def create_post(db: AsyncSession, create_data: models.PostCreate, user_id: int):
     post = models.Post(**create_data.dict(), author_id=user_id)
     db.add(post)
     await db.commit()
     await db.refresh(post)
 
 
-async def update_post(db: AsyncSession, update_data: schemas.PostUpdate):
+async def update_post(db: AsyncSession, update_data: models.PostUpdate):
     post = await get_post_by_id(db, update_data.id)
     post.title = update_data.title
     post.body = update_data.body

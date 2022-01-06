@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 
 from fastr.db.database import get_session
-from fastr.db import crud, schemas
+from fastr.db import crud, models
 from fastr.utils import flash
 
 
@@ -52,7 +52,7 @@ async def register_post(
     if error is None:
         # Success -- add user to database and redirect to login screen
         hashed_password = get_password_hash(password)
-        user = schemas.UserCreate(username=username, hashed_password=hashed_password)
+        user = models.UserCreate(username=username, hashed_password=hashed_password)
         await crud.create_user(db, user)
         return RedirectResponse("/auth/login", status_code=302)
     else:
@@ -87,7 +87,7 @@ async def login_post(
     if error is None:
         # Success -- populate user_id in the session and go to index
         clear_session(request)
-        logged_in_user = schemas.LoggedInUser(id=user.id, username=user.username)
+        logged_in_user = models.UserLoggedIn(id=user.id, username=user.username)
         request.session["user"] = logged_in_user.dict()
         return RedirectResponse("/", status_code=302)
     else:

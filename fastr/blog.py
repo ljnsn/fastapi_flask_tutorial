@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastr.db.database import get_session
-from fastr.db import crud, schemas, models
+from fastr.db import crud, models
 
 
 router = APIRouter(tags=["blog"])
@@ -62,7 +62,7 @@ async def create_post(
     Note: title is specified as a required field, so FastAPI's input validation will
     make sure it is populated. No need for an explicit check that it is not None or "".
     """
-    post = schemas.Post(title=title, body=body)
+    post = models.PostCreate(title=title, body=body)
     await crud.create_post(
         db=db, create_data=post, user_id=request.session["user"]["id"]
     )
@@ -100,7 +100,7 @@ async def update_post(
     """
     await get_and_validate_post(id=id, db=db, request=request)
 
-    update_data = schemas.PostUpdate(id=id, title=title, body=body)
+    update_data = models.PostUpdate(id=id, title=title, body=body)
     await crud.update_post(db, update_data)
     return RedirectResponse("/", status_code=302)
 
@@ -155,7 +155,7 @@ async def get_and_validate_post(
     if post is None:
         raise HTTPException(404, f"Post id {id} doesn't exist.")
 
-    user = schemas.LoggedInUser(**request.session.get("user", {}))
+    user = models.UserLoggedIn(**request.session.get("user", {}))
     if check_author and post.author_id != user.id:
         raise HTTPException(
             403,
